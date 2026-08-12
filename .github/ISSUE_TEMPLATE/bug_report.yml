@@ -1,0 +1,56 @@
+name: Bug report
+description: Report a reproducible exporter problem
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please redact transaction IDs, payment information, personal data, cookies and authentication tokens before submitting.
+
+  - type: dropdown
+    id: site
+    attributes:
+      label: Lidl site
+      options:
+        - Lidl UK
+        - Lidl Italy
+        - Other / proposed country
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and version
+      placeholder: "Chrome 140"
+    validations:
+      required: true
+
+  - type: input
+    id: receipt_date
+    attributes:
+      label: Approximate receipt date
+      placeholder: "2026-04-20"
+
+  - type: textarea
+    id: behaviour
+    attributes:
+      label: What happened?
+      description: Describe the expected and actual behaviour.
+    validations:
+      required: true
+
+  - type: textarea
+    id: console
+    attributes:
+      label: Redacted Console output
+      render: text
+
+  - type: checkboxes
+    id: redaction
+    attributes:
+      label: Privacy check
+      options:
+        - label: I have removed credentials, cookies, transaction IDs, payment information and personal data.
+          required: true

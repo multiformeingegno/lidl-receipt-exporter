@@ -1,0 +1,22 @@
+# Operating systems
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Local exports
+*.pdf
+*.zip
+receipts/
+exports/
+
+# Logs
+*.log
+
+# Environment files
+.env
+.env.*
