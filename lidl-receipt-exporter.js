@@ -1,9 +1,9 @@
 /**
  * Lidl Receipt Exporter
- * Version: 1.0.0
+ * Version: 1.1.0
  *
  * Unofficial personal-use exporter for Lidl Plus digital receipts
- * on Lidl UK and Lidl Italy.
+ * on Lidl UK, Lidl Italy and Lidl Greece.
  *
  * License: MIT
  * Project is not affiliated with or endorsed by Lidl.
@@ -44,6 +44,20 @@
       countryCode: "it",
       language: "it-IT",
       zipName: "lidl-it-receipts.zip"
+    },
+    "www.lidl-hellas.gr": {
+      label: "Greece",
+      clientId: "greeceretailclient",
+      countryCode: "gr",
+      language: "el-GR",
+      zipName: "lidl-greece-receipts.zip"
+    },
+    "lidl-hellas.gr": {
+      label: "Greece",
+      clientId: "greeceretailclient",
+      countryCode: "gr",
+      language: "el-GR",
+      zipName: "lidl-greece-receipts.zip"
     }
   };
 
@@ -52,7 +66,7 @@
   if (!SITE) {
     throw new Error(
       `Unsupported Lidl site: ${location.hostname}. ` +
-      `Run this exporter on www.lidl.co.uk or www.lidl.it.`
+      `Run this exporter on www.lidl.co.uk, www.lidl.it or www.lidl-hellas.gr.`
     );
   }
 
@@ -329,6 +343,60 @@
     return canvasToAsset(canvas, cssWidth, cssHeight);
   }
 
+  async function styledLinesToJpeg(styledLines, pre, popup) {
+    if (!styledLines.length) return null;
+
+    const doc = pre.ownerDocument, win = doc.defaultView;
+    if (!win || !pre.isConnected) throw new DetachedDocError();
+
+    let current;
+    try { current = popup.document; } catch (_) { throw new DetachedDocError(); }
+    if (current !== doc) throw new DetachedDocError();
+
+    const c = win.getComputedStyle(pre);
+    const rect = pre.getBoundingClientRect();
+    const cssWidth = Math.max(1, rect.width);
+    const baseFontSize = parseFloat(c.fontSize) || 14;
+    let lineHeight = parseFloat(c.lineHeight);
+    if (!Number.isFinite(lineHeight)) lineHeight = baseFontSize * 1.2;
+
+    const cssHeight = Math.max(1, lineHeight * styledLines.length + 2);
+    const scale = 4, canvas = document.createElement("canvas");
+    canvas.width = Math.ceil(cssWidth * scale);
+    canvas.height = Math.ceil(cssHeight * scale);
+
+    const ctx = canvas.getContext("2d");
+    ctx.scale(scale, scale);
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, cssWidth, cssHeight);
+    ctx.textBaseline = "top";
+
+    let y = 0;
+    for (const line of styledLines) {
+      let x = 0;
+      for (const run of line) {
+        if (!run.text.length) continue;
+
+        const fontSize = baseFontSize * (run.fontScale || 1);
+        ctx.font = `${c.fontStyle || "normal"} ${run.bold ? "bold" : "normal"} ${fontSize}px ${c.fontFamily || "monospace"}`;
+        const [r, g, b] = run.colour || [0, 0, 0];
+        const advance = ctx.measureText(run.text).width;
+
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.scale(1, run.scaleY || 1);
+        ctx.fillStyle = `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)})`;
+        ctx.fillText(run.text, 0, 0);
+        ctx.restore();
+
+        x += advance;
+      }
+      y += lineHeight;
+    }
+
+    return canvasToAsset(canvas, cssWidth, cssHeight);
+  }
+
   async function imageUrlToJpeg(url, crop = false) {
     const response = await fetch(url, { credentials: "include" });
     if (!response.ok) throw new Error(`Image returned ${response.status}`);
@@ -367,15 +435,14 @@
   }
 
   function getBarcodeCode(ticket) {
-    const wrapper = ticket.querySelector('[data-testid^="bottom-barcode-"]');
-    if (wrapper) {
-      const value = wrapper.getAttribute("data-testid").replace(/^bottom-barcode-/, "");
-      if (/^\d+$/.test(value)) return value;
-    }
-
-    const canvas = ticket.querySelector('canvas[data-testid$="-ITF"]');
-    if (canvas) {
-      const value = canvas.getAttribute("data-testid").replace(/-ITF$/, "");
+    const candidates = [
+      ...ticket.querySelectorAll('[data-testid^="bottom-barcode-"], canvas[data-testid$="-ITF"]')
+    ];
+    for (const candidate of candidates) {
+      const testId = candidate.getAttribute("data-testid") || "";
+      const value = testId
+        .replace(/^bottom-barcode-/, "")
+        .replace(/-ITF$/, "");
       if (/^\d+$/.test(value)) return value;
     }
 
@@ -390,11 +457,14 @@
     return "";
   }
 
-  function createReceiptPdf({ styledLines, logo, copyImage, marketingImages, barcode }) {
+  function createReceiptPdf({ styledLines, bodyImage, logo, copyImage, marketingImages, barcode }) {
     const pageWidth = 80 * 72 / 25.4, fontSize = BODY_FONT_SIZE_PT;
     const lineHeight = BODY_LINE_HEIGHT_PT, charWidth = fontSize * 0.6;
     const maximumColumns = Math.max(1, ...styledLines.map(lineColumns));
     const bodyOriginX = Math.max(4, (pageWidth - maximumColumns * charWidth) / 2);
+
+    const bodyWidth = bodyImage ? Math.min(pageWidth - 8, bodyImage.cssWidth * 0.75) : 0;
+    const bodyHeight = bodyImage ? bodyWidth * bodyImage.height / bodyImage.width : 0;
 
     const copyWidth = copyImage ? Math.min(pageWidth - 12, copyImage.cssWidth * 0.75) : 0;
     const copyHeight = copyImage ? copyWidth * copyImage.height / copyImage.width : 0;
@@ -413,7 +483,8 @@
     const pageHeight = Math.max(
       180,
       10 + copyHeight + (copyImage ? 10 : 0) + logoHeight + (logo ? 17 : 3) +
-      styledLines.length * lineHeight + (barcode ? 67 : 15) +
+      (bodyImage ? bodyHeight : styledLines.length * lineHeight) + (bodyImage ? 8 : 0) +
+      (barcode ? 67 : 15) +
       (marketingLayouts.length ? marketingTotalHeight + 14 : 5) + 15
     );
 
@@ -421,6 +492,7 @@
     let nextId = 6;
     const logoId = logo ? nextId++ : null;
     const copyId = copyImage ? nextId++ : null;
+    const bodyId = bodyImage ? nextId++ : null;
     const marketingIds = marketingLayouts.map(() => nextId++);
     const contentId = nextId++, objectCount = nextId - 1;
 
@@ -436,6 +508,7 @@
     const xo = [];
     if (logoId) xo.push(`/Logo ${logoId} 0 R`);
     if (copyId) xo.push(`/Copy ${copyId} 0 R`);
+    if (bodyId) xo.push(`/Body ${bodyId} 0 R`);
     marketingIds.forEach((id, i) => xo.push(`/Marketing${i} ${id} 0 R`));
     if (xo.length) resources += `
 /XObject <<
@@ -476,25 +549,36 @@ Q
       y -= 17;
     }
 
-    for (const line of styledLines) {
-      let column = 0;
-      for (const run of line) {
-        if (!run.text.length) continue;
+    if (bodyImage) {
+      const x = (pageWidth - bodyWidth) / 2;
+      y -= bodyHeight;
+      stream += `q
+${bodyWidth.toFixed(2)} 0 0 ${bodyHeight.toFixed(2)} ${x.toFixed(2)} ${y.toFixed(2)} cm
+/Body Do
+Q
+`;
+      y -= 8;
+    } else {
+      for (const line of styledLines) {
+        let column = 0;
+        for (const run of line) {
+          if (!run.text.length) continue;
 
-        const [r, g, bl] = run.colour;
-        const fs = fontSize * (run.fontScale || 1), sy = run.scaleY || 1;
-        const x = bodyOriginX + column * charWidth;
+          const [r, g, bl] = run.colour;
+          const fs = fontSize * (run.fontScale || 1), sy = run.scaleY || 1;
+          const x = bodyOriginX + column * charWidth;
 
-        stream += `${r.toFixed(4)} ${g.toFixed(4)} ${bl.toFixed(4)} rg
+          stream += `${r.toFixed(4)} ${g.toFixed(4)} ${bl.toFixed(4)} rg
 BT
 ${run.bold ? "/F2" : "/F1"} ${fs.toFixed(2)} Tf
 1 0 0 ${sy.toFixed(3)} ${x.toFixed(2)} ${y.toFixed(2)} Tm
 (${pdfString(run.text)}) Tj
 ET
 `;
-        column += run.text.length * (run.fontScale || 1);
+          column += run.text.length * (run.fontScale || 1);
+        }
+        y -= lineHeight;
       }
-      y -= lineHeight;
     }
 
     if (barcode) {
@@ -527,6 +611,7 @@ Q
     const imageObjects = new Map();
     if (logoId) imageObjects.set(logoId, logo);
     if (copyId) imageObjects.set(copyId, copyImage);
+    if (bodyId) imageObjects.set(bodyId, bodyImage);
     marketingIds.forEach((id, i) => imageObjects.set(id, marketingLayouts[i].image));
 
     const parts = [], offsets = [0];
@@ -747,6 +832,9 @@ ${xrefPos}
         const styledLines = extractStyledLines(pre, popup);
         const plainText = normalise(pre.innerText);
         const barcode = getBarcodeCode(ticket);
+        const bodyImage = /[^\x20-\x7E]/.test(plainText)
+          ? await styledLinesToJpeg(styledLines, pre, popup)
+          : null;
 
         const copyEl = ticket.querySelector('[data-testid="copy"]');
         const marketingEls = [
@@ -771,7 +859,7 @@ ${xrefPos}
         assertLive(doc, ticket, popup);
 
         return {
-          kind: "ok", styledLines, plainText, barcode,
+          kind: "ok", styledLines, bodyImage, plainText, barcode,
           logo, copyImage, marketingImages
         };
       } catch (error) {
@@ -834,6 +922,22 @@ ${xrefPos}
       return makeDate(m[3], m[2], m[1]);
     }
 
+    // Greek receipt summary: "28.08.25 20:52"
+    m = text.match(
+      /\b(\d{1,2})\.(\d{1,2})\.(\d{2,4})\s+\d{1,2}:\d{2}\b/
+    );
+    if (m) {
+      return makeDate(m[3], m[2], m[1]);
+    }
+
+    // Greek card-terminal section: "HM/NIA:2025/08/28"
+    m = text.match(
+      /\bHM\/NIA:\s*(\d{4})\/(\d{1,2})\/(\d{1,2})\b/i
+    );
+    if (m) {
+      return makeDate(m[1], m[2], m[3]);
+    }
+
     return null;
   }
 
@@ -890,6 +994,7 @@ ${xrefPos}
 
       const pdf = createReceiptPdf({
         styledLines: captured.styledLines,
+        bodyImage: captured.bodyImage,
         logo: captured.logo,
         copyImage: captured.copyImage,
         marketingImages: captured.marketingImages,

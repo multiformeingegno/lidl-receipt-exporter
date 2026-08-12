@@ -8,7 +8,7 @@ It does not depend on npm packages, CDNs, PDF libraries or ZIP libraries.
 
 The main stages are:
 
-1. detect Lidl UK or Lidl Italy from `location.hostname`;
+1. detect Lidl UK, Lidl Italy or Lidl Greece from `location.hostname`;
 2. build the appropriate purchase-history URL parameters;
 3. enumerate receipt detail links page by page;
 4. load each receipt in one reusable top-level window;
@@ -90,7 +90,7 @@ Non-monospace elements such as the receipt heading and footer/marketing messages
 
 The exporter supports numeric ITF reconstruction.
 
-For Italy, the receipt may expose an alphanumeric `data-return-code` that is not itself an ITF value. The exporter therefore prefers the numeric `bottom-barcode-*` or `*-ITF` identifier.
+For Italy and Greece, the receipt may expose an alphanumeric or URL-valued `bottom-barcode-*` identifier that is not itself an ITF value. The exporter therefore scans all numeric `bottom-barcode-*` and `*-ITF` identifiers before using a numeric `data-return-code` fallback.
 
 For the UK, a numeric `data-return-code` may be used as a fallback.
 
@@ -110,6 +110,15 @@ Italy:
 DD-MM-YYYY HH:MM
 DATA DD/MM/YY
 ```
+
+Greece:
+
+```text
+DD.MM.YY HH:MM
+HM/NIA:YYYY/MM/DD
+```
+
+Greek receipt bodies contain Unicode text that cannot be represented by the PDF base fonts used for the ASCII/Latin vector path. When the receipt body contains non-ASCII characters, it is rasterized with the browser's loaded receipt font and embedded as a JPEG image instead.
 
 If text parsing fails, the exporter searches the Lidl transaction identifier for a plausible `YYYYMMDD` sequence.
 

@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is inspired by Keep a Changelog, and the project uses semantic-style version numbers.
 
+## [1.1.0] - 2026-08-12
+
+### Added
+
+- Lidl Greece support for `www.lidl-hellas.gr`.
+- Greek purchase-history URL parameters and ZIP naming.
+- Greek receipt date parsing.
+- Numeric barcode selection when a receipt exposes a QR identifier before its ITF identifier.
+- Unicode-safe rasterized receipt bodies for Greek text.
+
 ## [1.0.0] - 2026-08-12
 
 ### Added

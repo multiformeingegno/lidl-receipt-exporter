@@ -6,6 +6,7 @@ It currently supports:
 
 - **Lidl UK** (`lidl.co.uk`)
 - **Lidl Italy** (`lidl.it`)
+- **Lidl Greece** (`lidl-hellas.gr`)
 
 The exporter runs locally in your browser while you are signed in to your Lidl account. It scans the purchase-history pages, recreates each available digital receipt as a PDF, and downloads the results as a ZIP archive.
 
@@ -16,7 +17,7 @@ The exporter runs locally in your browser while you are signed in to your Lidl a
 
 The exporter:
 
-- detects whether it is running on Lidl UK or Lidl Italy;
+- detects whether it is running on Lidl UK, Lidl Italy or Lidl Greece;
 - scans all available purchase-history pages;
 - opens receipt detail pages using a reusable browser window;
 - handles Lidl authentication redirects that cannot run inside an iframe;
@@ -36,6 +37,7 @@ No external JavaScript libraries are loaded.
 | --- | --- | --- |
 | Lidl UK | `www.lidl.co.uk` | `lidl-uk-receipts.zip` |
 | Lidl Italy | `www.lidl.it` | `lidl-it-receipts.zip` |
+| Lidl Greece | `www.lidl-hellas.gr` | `lidl-greece-receipts.zip` |
 
 Tested against the Lidl web interfaces available in **August 2026**. Lidl can change these interfaces at any time.
 
@@ -64,6 +66,12 @@ Italy:
 
 ```text
 https://www.lidl.it/mre/purchase-history?client_id=ItalyRetailClient&country_code=it&language=it-IT&page=1
+```
+
+Greece:
+
+```text
+https://www.lidl-hellas.gr/mre/purchase-history?client_id=greeceretailclient&country_code=gr&language=el-GR&page=1
 ```
 
 ### 2. Open DevTools
@@ -163,7 +171,7 @@ See [DISCLAIMER.md](./DISCLAIMER.md).
 - Lidl may change its HTML, CSS, routes, authentication flow or receipt format without notice.
 - Some older receipts may remain visible in purchase history but no longer have renderable detail data.
 - The generated PDF is a reconstruction of the digital receipt, not a byte-for-byte copy of Lidl's own rendering.
-- Some unusual characters may be approximated by the PDF renderer.
+- Greek receipt bodies are rendered as an image in the PDF so their Unicode text remains readable.
 - Browser popup/privacy extensions can interfere with receipt processing.
 - Firefox and Safari are not currently tested.
 
